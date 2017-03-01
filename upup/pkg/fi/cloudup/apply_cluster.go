@@ -88,6 +88,7 @@ type ApplyClusterCmd struct {
 }
 
 func (c *ApplyClusterCmd) Run() error {
+	fmt.Print("apply_cluster.Run invoked for ApplyClusterCmd %s\n", fi.DebugAsJsonString(c))
 	if c.MaxTaskDuration == 0 {
 		c.MaxTaskDuration = DefaultMaxTaskDuration
 	}
@@ -104,11 +105,14 @@ func (c *ApplyClusterCmd) Run() error {
 		c.InstanceGroups = instanceGroups
 	}
 
+	fmt.Print("apply_cluster.Run after c.InstanceGroups %s\n", fi.DebugAsJsonString(c.InstanceGroups))
+
 	if c.Models == nil {
 		c.Models = CloudupModels
 	}
 
 	modelStore, err := findModelStore()
+	fmt.Print("apply_cluster.Run after modelStore %s\n", fi.DebugAsJsonString(modelStore))
 	if err != nil {
 		return err
 	}
@@ -118,11 +122,13 @@ func (c *ApplyClusterCmd) Run() error {
 		return err
 	}
 	c.channel = channel
+	fmt.Print("apply_cluster.Run after channel %s\n", fi.DebugAsJsonString(c.channel))
 
 	err = c.upgradeSpecs()
 	if err != nil {
 		return err
 	}
+	fmt.Print("apply_cluster.Run after c.upgradeSpecs() c is %s\n", fi.DebugAsJsonString(c))
 
 	err = c.validateKopsVersion()
 	if err != nil {
@@ -158,12 +164,14 @@ func (c *ApplyClusterCmd) Run() error {
 	}
 
 	keyStore, err := registry.KeyStore(cluster)
+	fmt.Print("apply_cluster.Run after keyStore is %s\n", fi.DebugAsJsonString(keyStore))
 	if err != nil {
 		return err
 	}
 	keyStore.(*fi.VFSCAStore).DryRun = c.DryRun
 
 	secretStore, err := registry.SecretStore(cluster)
+	fmt.Print("apply_cluster.Run after secretStore is %s\n", fi.DebugAsJsonString(secretStore))
 	if err != nil {
 		return err
 	}
@@ -321,6 +329,7 @@ func (c *ApplyClusterCmd) Run() error {
 				"dnsName": &awstasks.DNSName{},
 				"dnsZone": &awstasks.DNSZone{},
 			})
+			fmt.Print("apply_cluster.Run l.types is %s\n", fi.DebugAsJsonString(l.typeMap))
 
 			if len(sshPublicKeys) == 0 {
 				return fmt.Errorf("SSH public key must be specified when running with AWS (create with `kops create secret --name %s sshpublickey admin -i ~/.ssh/id_rsa.pub`)", cluster.ObjectMeta.Name)
@@ -340,6 +349,7 @@ func (c *ApplyClusterCmd) Run() error {
 	}
 
 	modelContext.Region = region
+	fmt.Print("apply_cluster.Run 1modelContext is %s\n", fi.DebugAsJsonString(modelContext))
 
 	err = validateDNS(cluster, cloud)
 	if err != nil {
@@ -362,6 +372,7 @@ func (c *ApplyClusterCmd) Run() error {
 	l.Tags = clusterTags
 	l.WorkDir = c.OutDir
 	l.ModelStore = modelStore
+	fmt.Print("apply_cluster.Run before l.Builders size is %d\n", len(l.Builders))
 
 	var fileModels []string
 	for _, m := range c.Models {
@@ -388,6 +399,8 @@ func (c *ApplyClusterCmd) Run() error {
 			fileModels = append(fileModels, m)
 		}
 	}
+	fmt.Print("apply_cluster.Run fileModels is %s\n", fi.DebugAsJsonString(fileModels))
+	fmt.Print("apply_cluster.Run after l.Builders size is %d\n", len(l.Builders))
 
 	l.TemplateFunctions["CA"] = func() fi.CAStore {
 		return keyStore
@@ -395,9 +408,11 @@ func (c *ApplyClusterCmd) Run() error {
 	l.TemplateFunctions["Secrets"] = func() fi.SecretStore {
 		return secretStore
 	}
+	fmt.Print("Before renderNodeUpConfig init")
 
 	// RenderNodeUpConfig returns the NodeUp config, in YAML format
 	renderNodeUpConfig := func(ig *api.InstanceGroup) (*nodeup.NodeUpConfig, error) {
+		fmt.Print("Running renderNodeUpConfig init")
 		if ig == nil {
 			return nil, fmt.Errorf("instanceGroup cannot be nil")
 		}
@@ -473,6 +488,7 @@ func (c *ApplyClusterCmd) Run() error {
 
 		return config, nil
 	}
+	fmt.Print("After renderNodeUpConfig init, value %s\n", fi.DebugAsJsonString(renderNodeUpConfig))
 
 	l.Builders = append(l.Builders, &model.AutoscalingGroupModelBuilder{
 		KopsModelContext:    modelContext,
@@ -514,6 +530,7 @@ func (c *ApplyClusterCmd) Run() error {
 	var target fi.Target
 	dryRun := false
 
+	fmt.Print("\n TargetName is", c.TargetName)
 	switch c.TargetName {
 	case TargetDirect:
 		switch cluster.Spec.CloudProvider {

@@ -179,6 +179,7 @@ func NewCmdCreateCluster(f *util.Factory, out io.Writer) *cobra.Command {
 
 func RunCreateCluster(f *util.Factory, out io.Writer, c *CreateClusterOptions) error {
 	isDryrun := false
+	fmt.Printf("After init defaults c is %+v\n", c)
 	// direct requires --yes (others do not, because they don't make changes)
 	targetName := c.Target
 	if c.Target == cloudup.TargetDirect {
@@ -212,6 +213,7 @@ func RunCreateCluster(f *util.Factory, out io.Writer, c *CreateClusterOptions) e
 	}
 
 	cluster, err := clientset.Clusters().Get(clusterName)
+	fmt.Print("Existing cluster is %+v\n", cluster)
 	if err != nil {
 		return err
 	}
@@ -236,6 +238,7 @@ func RunCreateCluster(f *util.Factory, out io.Writer, c *CreateClusterOptions) e
 		}
 	}
 	cluster.Spec.Channel = c.Channel
+	fmt.Print("After channel init cluster is %s\n", fi.DebugAsJsonString(cluster))
 
 	configBase, err := clientset.Clusters().(*vfsclientset.ClusterVFS).ConfigBase(clusterName)
 	if err != nil {
@@ -267,6 +270,7 @@ func RunCreateCluster(f *util.Factory, out io.Writer, c *CreateClusterOptions) e
 
 	glog.V(4).Infof("networking mode=%s => %s", c.Networking, fi.DebugAsJsonString(cluster.Spec.Networking))
 
+	fmt.Print("Before populating subnets cluster is %s\n", fi.DebugAsJsonString(cluster))
 	if len(c.Zones) != 0 {
 		existingSubnets := make(map[string]*api.ClusterSubnetSpec)
 		for i := range cluster.Spec.Subnets {
@@ -285,6 +289,7 @@ func RunCreateCluster(f *util.Factory, out io.Writer, c *CreateClusterOptions) e
 			}
 		}
 	}
+	fmt.Print("After populating subnets cluster is %s\n", fi.DebugAsJsonString(cluster))
 
 	if len(cluster.Spec.Subnets) == 0 {
 		return fmt.Errorf("must specify at least one zone for the cluster (use --zones)")
@@ -397,6 +402,8 @@ func RunCreateCluster(f *util.Factory, out io.Writer, c *CreateClusterOptions) e
 			cluster.Spec.EtcdClusters = append(cluster.Spec.EtcdClusters, etcd)
 		}
 	}
+
+	fmt.Print("After master and etcd population, cluster is %s\n", fi.DebugAsJsonString(cluster))
 
 	if len(nodes) == 0 {
 		g := &api.InstanceGroup{}
@@ -617,6 +624,8 @@ func RunCreateCluster(f *util.Factory, out io.Writer, c *CreateClusterOptions) e
 		cluster.Spec.KubernetesAPIAccess = c.AdminAccess
 	}
 
+	fmt.Print("After populating more fields cluster is %s\n", fi.DebugAsJsonString(cluster))
+
 	err = cloudup.PerformAssignments(cluster)
 	if err != nil {
 		return fmt.Errorf("error populating configuration: %v", err)
@@ -627,10 +636,12 @@ func RunCreateCluster(f *util.Factory, out io.Writer, c *CreateClusterOptions) e
 	}
 
 	strict := false
+	fmt.Print("Before deep validate, cluster is %s\n", fi.DebugAsJsonString(cluster))
 	err = validation.DeepValidate(cluster, instanceGroups, strict)
 	if err != nil {
 		return err
 	}
+	fmt.Print("After deep validate, cluster is %s\n", fi.DebugAsJsonString(cluster))
 
 	fullCluster, err := cloudup.PopulateClusterSpec(cluster)
 	if err != nil {
@@ -651,6 +662,7 @@ func RunCreateCluster(f *util.Factory, out io.Writer, c *CreateClusterOptions) e
 		return err
 	}
 
+	fmt.Print("Before creating cluster config in registry, fullInstanceGroups is %s\n", fi.DebugAsJsonString(fullInstanceGroups))
 	// Note we perform as much validation as we can, before writing a bad config
 	err = registry.CreateClusterConfig(clientset, cluster, fullInstanceGroups)
 	if err != nil {
@@ -694,6 +706,7 @@ func RunCreateCluster(f *util.Factory, out io.Writer, c *CreateClusterOptions) e
 		// No equivalent options:
 		//  updateClusterOptions.MaxTaskDuration = c.MaxTaskDuration
 		//  updateClusterOptions.CreateKubecfg = c.CreateKubecfg
+
 
 		err := RunUpdateCluster(f, clusterName, out, updateClusterOptions)
 		if err != nil {

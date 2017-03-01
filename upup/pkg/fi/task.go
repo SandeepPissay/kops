@@ -55,6 +55,7 @@ func (c *ModelBuilderContext) AddTask(task Task) {
 	if found {
 		glog.Fatalf("found duplicate tasks with name %q: %v and %v", key, task, existing)
 	}
+	fmt.Print("\nAdding task with key " + key + " and value ", task)
 	c.Tasks[key] = task
 }
 

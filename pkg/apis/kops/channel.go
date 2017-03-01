@@ -104,6 +104,7 @@ func LoadChannel(location string) (*Channel, error) {
 		return nil, fmt.Errorf("error parsing channel %q: %v", resolved, err)
 	}
 	glog.V(4).Infof("Channel contents: %s", string(channelBytes))
+	glog.V(4).Infof("Channel struct is : %q", channel)
 
 	return channel, nil
 }
