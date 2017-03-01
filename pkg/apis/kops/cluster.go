@@ -231,12 +231,16 @@ type ClusterSpec struct {
 	KubeProxy             *KubeProxyConfig             `json:"kubeProxy,omitempty"`
 	Kubelet               *KubeletConfigSpec           `json:"kubelet,omitempty"`
 	MasterKubelet         *KubeletConfigSpec           `json:"masterKubelet,omitempty"`
+	CloudConfig           *CloudConfiguration          `json:"cloudConfig,omitempty"`
 
 	// Networking configuration
 	Networking *NetworkingSpec `json:"networking,omitempty"`
 
 	// API field controls how the API is exposed outside the cluster
 	API *AccessSpec `json:"api,omitempty"`
+
+	// Tags for AWS instance groups
+	CloudLabels map[string]string `json:"cloudLabels,omitempty"`
 }
 
 type AccessSpec struct {
@@ -260,7 +264,8 @@ const (
 )
 
 type LoadBalancerAccessSpec struct {
-	Type LoadBalancerType `json:"type,omitempty"`
+	Type               LoadBalancerType `json:"type,omitempty"`
+	IdleTimeoutSeconds *int64           `json:"idleTimeoutSeconds,omitempty"`
 }
 
 type KubeDNSConfig struct {
@@ -271,16 +276,6 @@ type KubeDNSConfig struct {
 	Domain   string `json:"domain,omitempty"`
 	ServerIP string `json:"serverIP,omitempty"`
 }
-
-//
-//type MasterConfig struct {
-//	Name string `json:",omitempty"`
-//
-//	Image       string `json:",omitempty"`
-//	Zone        string `json:",omitempty"`
-//	MachineType string `json:",omitempty"`
-//}
-//
 
 type EtcdClusterSpec struct {
 	// Name is the name of the etcd cluster (main, events etc)
@@ -361,6 +356,8 @@ func (c *Cluster) FillDefaults() error {
 	} else if c.Spec.Networking.Kopeio != nil {
 		// OK
 	} else if c.Spec.Networking.Weave != nil {
+		// OK
+	} else if c.Spec.Networking.Flannel != nil {
 		// OK
 	} else if c.Spec.Networking.Calico != nil {
 		// OK

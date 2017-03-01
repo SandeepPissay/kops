@@ -18,6 +18,7 @@ package main
 
 import (
 	"bytes"
+	"encoding/csv"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -76,6 +77,9 @@ type CreateClusterOptions struct {
 	// Enable/Disable Bastion Host complete setup
 	Bastion bool
 
+	// Specify tags for AWS instance groups
+	CloudLabels string
+
 	// Egress configuration - FOR TESTING ONLY
 	Egress string
 }
@@ -126,7 +130,7 @@ func NewCmdCreateCluster(f *util.Factory, out io.Writer) *cobra.Command {
 	}
 
 	cmd.Flags().BoolVar(&options.Yes, "yes", options.Yes, "Specify --yes to immediately create the cluster")
-	cmd.Flags().StringVar(&options.Target, "target", options.Target, "Target - direct, terraform")
+	cmd.Flags().StringVar(&options.Target, "target", options.Target, "Target - direct, terraform, cloudformation")
 	cmd.Flags().StringVar(&options.Models, "model", options.Models, "Models to apply (separate multiple models with commas)")
 
 	cmd.Flags().StringVar(&options.Cloud, "cloud", options.Cloud, "Cloud provider to use - gce, aws")
@@ -151,7 +155,7 @@ func NewCmdCreateCluster(f *util.Factory, out io.Writer) *cobra.Command {
 
 	cmd.Flags().StringVar(&options.Image, "image", options.Image, "Image to use")
 
-	cmd.Flags().StringVar(&options.Networking, "networking", "kubenet", "Networking mode to use.  kubenet (default), classic, external, kopeio-vxlan, weave, calico, canal.")
+	cmd.Flags().StringVar(&options.Networking, "networking", "kubenet", "Networking mode to use.  kubenet (default), classic, external, kopeio-vxlan, weave, flannel, calico, canal.")
 
 	cmd.Flags().StringVar(&options.DNSZone, "dns-zone", options.DNSZone, "DNS hosted zone to use (defaults to longest matching zone)")
 	cmd.Flags().StringVar(&options.OutDir, "out", options.OutDir, "Path to write any local output")
@@ -173,6 +177,9 @@ func NewCmdCreateCluster(f *util.Factory, out io.Writer) *cobra.Command {
 
 	// Bastion
 	cmd.Flags().BoolVar(&options.Bastion, "bastion", options.Bastion, "Pass the --bastion flag to enable a bastion instance group. Only applies to private topology.")
+
+	// Allow custom tags from the CLI
+	cmd.Flags().StringVar(&options.CloudLabels, "cloud-labels", options.CloudLabels, "A list of KV pairs used to tag all instance groups in AWS (eg \"Owner=John Doe,Team=Some Team\").")
 
 	return cmd
 }
@@ -202,6 +209,8 @@ func RunCreateCluster(f *util.Factory, out io.Writer, c *CreateClusterOptions) e
 	if c.OutDir == "" {
 		if c.Target == cloudup.TargetTerraform {
 			c.OutDir = "out/terraform"
+		} else if c.Target == cloudup.TargetCloudformation {
+			c.OutDir = "out/cloudformation"
 		} else {
 			c.OutDir = "out"
 		}
@@ -260,6 +269,8 @@ func RunCreateCluster(f *util.Factory, out io.Writer, c *CreateClusterOptions) e
 		cluster.Spec.Networking.Kopeio = &api.KopeioNetworkingSpec{}
 	case "weave":
 		cluster.Spec.Networking.Weave = &api.WeaveNetworkingSpec{}
+	case "flannel":
+		cluster.Spec.Networking.Flannel = &api.FlannelNetworkingSpec{}
 	case "calico":
 		cluster.Spec.Networking.Calico = &api.CalicoNetworkingSpec{}
 	case "canal":
@@ -298,6 +309,11 @@ func RunCreateCluster(f *util.Factory, out io.Writer, c *CreateClusterOptions) e
 	var masters []*api.InstanceGroup
 	var nodes []*api.InstanceGroup
 	var instanceGroups []*api.InstanceGroup
+	cloudLabels, err := parseCloudLabels(c.CloudLabels)
+	if err != nil {
+		return fmt.Errorf("error parsing global cloud labels: %v", err)
+	}
+	cluster.Spec.CloudLabels = cloudLabels
 
 	// Build the master subnets
 	// The master zones is the default set of zones unless explicitly set
@@ -524,7 +540,7 @@ func RunCreateCluster(f *util.Factory, out io.Writer, c *CreateClusterOptions) e
 
 	case api.TopologyPrivate:
 		if !supportsPrivateTopology(cluster.Spec.Networking) {
-			return fmt.Errorf("Invalid networking option %s. Currently only '--networking kopeio-vxlan', '--networking weave', '--networking calico', '--networking canal' are supported for private topologies", c.Networking)
+			return fmt.Errorf("Invalid networking option %s. Currently only '--networking kopeio-vxlan', '--networking weave', '--networking flannel', '--networking calico', '--networking canal' are supported for private topologies", c.Networking)
 		}
 		cluster.Spec.Topology = &api.TopologySpec{
 			Masters: api.TopologyPrivate,
@@ -553,11 +569,13 @@ func RunCreateCluster(f *util.Factory, out io.Writer, c *CreateClusterOptions) e
 			bastionGroup := &api.InstanceGroup{}
 			bastionGroup.Spec.Role = api.InstanceGroupRoleBastion
 			bastionGroup.ObjectMeta.Name = "bastions"
+			bastionGroup.Spec.Image = c.Image
 			instanceGroups = append(instanceGroups, bastionGroup)
 
 			cluster.Spec.Topology.Bastion = &api.BastionSpec{
 				BastionPublicName: "bastion." + clusterName,
 			}
+
 		}
 
 	default:
@@ -743,7 +761,7 @@ func RunCreateCluster(f *util.Factory, out io.Writer, c *CreateClusterOptions) e
 
 func supportsPrivateTopology(n *api.NetworkingSpec) bool {
 
-	if n.CNI != nil || n.Kopeio != nil || n.Weave != nil || n.Calico != nil || n.Canal != nil {
+	if n.CNI != nil || n.Kopeio != nil || n.Weave != nil || n.Flannel != nil || n.Calico != nil || n.Canal != nil {
 		return true
 	}
 	return false
@@ -780,4 +798,31 @@ func trimCommonPrefix(names []string) []string {
 	}
 
 	return names
+}
+
+// parseCloudLabels takes a CSV list of key=value records and parses them into a map. Nested '='s are supported via
+// quoted strings (eg `foo="bar=baz"` parses to map[string]string{"foo":"bar=baz"}. Nested commas are not supported.
+func parseCloudLabels(s string) (map[string]string, error) {
+
+	// Replace commas with newlines to allow a single pass with csv.Reader.
+	// We can't use csv.Reader for the initial split because it would see each key=value record as a single field
+	// and significantly complicates using quoted fields as keys or values.
+	records := strings.Replace(s, ",", "\n", -1)
+
+	// Let the CSV library do the heavy-lifting in handling nested ='s
+	r := csv.NewReader(strings.NewReader(records))
+	r.Comma = '='
+	r.FieldsPerRecord = 2
+	r.LazyQuotes = false
+	r.TrimLeadingSpace = true
+	kvPairs, err := r.ReadAll()
+	if err != nil {
+		return nil, fmt.Errorf("One or more key=value pairs are malformed:\n%s\n:%v", records, err)
+	}
+
+	m := make(map[string]string, len(kvPairs))
+	for _, pair := range kvPairs {
+		m[pair[0]] = pair[1]
+	}
+	return m, nil
 }

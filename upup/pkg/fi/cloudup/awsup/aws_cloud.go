@@ -22,6 +22,7 @@ import (
 	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/autoscaling"
+	"github.com/aws/aws-sdk-go/service/cloudformation"
 	"github.com/aws/aws-sdk-go/service/ec2"
 	"github.com/aws/aws-sdk-go/service/ec2/ec2iface"
 	"github.com/aws/aws-sdk-go/service/elb"
@@ -55,14 +56,23 @@ const DeleteTagsRetryInterval = 2 * time.Second
 const DeleteTagsLogInterval = 10 // this is in "retry intervals"
 
 const TagClusterName = "KubernetesCluster"
+const TagNameRolePrefix = "k8s.io/role/"
+const TagNameEtcdClusterPrefix = "k8s.io/etcd/"
 
-const WellKnownAccountKopeio = "383156758163"
+const TagRoleMaster = "master"
+
+const (
+	WellKnownAccountKopeio = "383156758163"
+	WellKnownAccountRedhat = "309956199498"
+	WellKnownAccountCoreOS = "595879546273"
+)
 
 type AWSCloud interface {
 	fi.Cloud
 
 	Region() string
 
+	CloudFormation() *cloudformation.CloudFormation
 	EC2() ec2iface.EC2API
 	IAM() *iam.IAM
 	ELB() *elb.ELB
@@ -107,6 +117,7 @@ type AWSCloud interface {
 }
 
 type awsCloudImplementation struct {
+	cf          *cloudformation.CloudFormation
 	ec2         *ec2.EC2
 	iam         *iam.IAM
 	elb         *elb.ELB
@@ -145,6 +156,9 @@ func NewAWSCloud(region string, tags map[string]string) (AWSCloud, error) {
 		config = config.WithCredentialsChainVerboseErrors(true)
 
 		requestLogger := newRequestLogger(2)
+
+		c.cf = cloudformation.New(session.New(), config)
+		c.cf.Handlers.Send.PushFront(requestLogger)
 
 		c.ec2 = ec2.New(session.New(), config)
 		c.ec2.Handlers.Send.PushFront(requestLogger)
@@ -198,16 +212,25 @@ func (c *awsCloudImplementation) WithTags(tags map[string]string) AWSCloud {
 	return i
 }
 
+var tagsEventualConsistencyErrors = map[string]bool{
+	"InvalidInstanceID.NotFound":        true,
+	"InvalidRouteTableID.NotFound":      true,
+	"InvalidVpcID.NotFound":             true,
+	"InvalidGroup.NotFound":             true,
+	"InvalidSubnetID.NotFound":          true,
+	"InvalidDhcpOptionsID.NotFound":     true,
+	"InvalidInternetGatewayID.NotFound": true,
+}
+
 // isTagsEventualConsistencyError checks if the error is one of the errors encountered when we try to create/get tags before the resource has fully 'propagated' in EC2
 func isTagsEventualConsistencyError(err error) bool {
 	if awsErr, ok := err.(awserr.Error); ok {
-		switch awsErr.Code() {
-		case "InvalidInstanceID.NotFound", "InvalidRouteTableID.NotFound", "InvalidVpcID.NotFound", "InvalidGroup.NotFound", "InvalidSubnetID.NotFound", "InvalidInternetGatewayID.NotFound", "InvalidDhcpOptionsID.NotFound":
-			return true
-
-		default:
-			glog.Warningf("Uncategorized error in isTagsEventualConsistencyError: %v", awsErr.Code())
+		isEventualConsistency, found := tagsEventualConsistencyErrors[awsErr.Code()]
+		if found {
+			return isEventualConsistency
 		}
+
+		glog.Warningf("Uncategorized error in isTagsEventualConsistencyError: %v", awsErr.Code())
 	}
 	return false
 }
@@ -575,8 +598,10 @@ func resolveImage(ec2Client ec2iface.EC2API, name string) (*ec2.Image, error) {
 			switch owner {
 			case "kope.io":
 				owner = WellKnownAccountKopeio
+			case "coreos.com":
+				owner = WellKnownAccountCoreOS
 			case "redhat.com":
-				owner = "309956199498"
+				owner = WellKnownAccountRedhat
 			}
 
 			request.Owners = []*string{&owner}
@@ -657,6 +682,10 @@ func (c *awsCloudImplementation) DNS() (dnsprovider.Interface, error) {
 		return nil, fmt.Errorf("Error building (k8s) DNS provider: %v", err)
 	}
 	return provider, nil
+}
+
+func (c *awsCloudImplementation) CloudFormation() *cloudformation.CloudFormation {
+	return c.cf
 }
 
 func (c *awsCloudImplementation) EC2() ec2iface.EC2API {

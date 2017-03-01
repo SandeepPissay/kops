@@ -33,7 +33,7 @@ type KubeletBuilder struct {
 	*NodeupModelContext
 }
 
-var _ fi.ModelBuilder = &DockerBuilder{}
+var _ fi.ModelBuilder = &KubeletBuilder{}
 
 func (b *KubeletBuilder) Build(c *fi.ModelBuilderContext) error {
 	kubeletConfig, err := b.buildKubeletConfig()
@@ -48,6 +48,15 @@ func (b *KubeletBuilder) Build(c *fi.ModelBuilderContext) error {
 		if err != nil {
 			return fmt.Errorf("error building kubelet flags: %v", err)
 		}
+
+		// Add cloud config file if needed
+		// We build this flag differently because it depends on CloudConfig, and to expose it directly
+		// would be a degree of freedom we don't have (we'd have to write the config to different files)
+		// We can always add this later if it is needed.
+		if b.Cluster.Spec.CloudConfig != nil {
+			flags += " --cloud-config=" + CloudConfigFilePath
+		}
+
 		sysconfig := "DAEMON_ARGS=\"" + flags + "\"\n"
 
 		t := &nodetasks.File{
@@ -103,6 +112,10 @@ func (b *KubeletBuilder) Build(c *fi.ModelBuilderContext) error {
 		c.AddTask(t)
 	}
 
+	if err := b.addStaticUtils(c); err != nil {
+		return err
+	}
+
 	c.AddTask(b.buildSystemdService())
 
 	return nil
@@ -123,6 +136,11 @@ func (b *KubeletBuilder) buildSystemdService() *nodetasks.Service {
 	manifest.Set("Unit", "Description", "Kubernetes Kubelet Server")
 	manifest.Set("Unit", "Documentation", "https://github.com/kubernetes/kubernetes")
 	manifest.Set("Unit", "After", "docker.service")
+
+	if b.Distribution == distros.DistributionCoreOS {
+		// We add /opt/kubernetes/bin for our utilities
+		manifest.Set("Service", "Environment", "PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/opt/kubernetes/bin")
+	}
 
 	manifest.Set("Service", "EnvironmentFile", "/etc/sysconfig/kubelet")
 	manifest.Set("Service", "ExecStart", kubeletCommand+" \"$DAEMON_ARGS\"")
@@ -175,6 +193,12 @@ func (b *KubeletBuilder) buildKubeconfig() (string, error) {
 	cluster.CertificateAuthorityData, err = caCertificate.AsBytes()
 	if err != nil {
 		return "", fmt.Errorf("error encoding CA certificate: %v", err)
+	}
+
+	if b.IsMaster {
+		cluster.Server = "http://127.0.0.1:8080"
+	} else {
+		cluster.Server = "https://" + b.Cluster.Spec.MasterInternalName
 	}
 
 	config := &kubeconfig.KubectlConfig{
@@ -235,4 +259,30 @@ func (b *KubeletBuilder) buildKubeletConfig() (*kops.KubeletConfigSpec, error) {
 	// TODO: Memoize if we reuse this
 	return kubeletConfigSpec, nil
 
+}
+
+func (b *KubeletBuilder) addStaticUtils(c *fi.ModelBuilderContext) error {
+	if b.Distribution == distros.DistributionCoreOS {
+		// CoreOS does not ship with socat.  Install our own (statically linked) version
+		// TODO: Extract to common function?
+		assetName := "socat"
+		assetPath := ""
+		asset, err := b.Assets.Find(assetName, assetPath)
+		if err != nil {
+			return fmt.Errorf("error trying to locate asset %q: %v", assetName, err)
+		}
+		if asset == nil {
+			return fmt.Errorf("unable to locate asset %q", assetName)
+		}
+
+		t := &nodetasks.File{
+			Path:     "/opt/kubernetes/bin/socat",
+			Contents: asset,
+			Type:     nodetasks.FileType_File,
+			Mode:     s("0755"),
+		}
+		c.AddTask(t)
+	}
+
+	return nil
 }

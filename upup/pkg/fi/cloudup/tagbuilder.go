@@ -45,7 +45,7 @@ func buildCloudupTags(cluster *api.Cluster) (sets.String, error) {
 	} else if networking.External != nil {
 		// external is based on kubenet
 		tags.Insert("_networking_kubenet", "_networking_external")
-	} else if networking.CNI != nil || networking.Weave != nil || networking.Calico != nil || networking.Canal != nil {
+	} else if networking.CNI != nil || networking.Weave != nil || networking.Flannel != nil || networking.Calico != nil || networking.Canal != nil {
 		tags.Insert("_networking_cni")
 	} else if networking.Kopeio != nil {
 		// TODO combine with the External
@@ -59,7 +59,6 @@ func buildCloudupTags(cluster *api.Cluster) (sets.String, error) {
 	switch cluster.Spec.CloudProvider {
 	case "gce":
 		{
-			glog.Fatalf("GCE is (probably) not working currently - please ping @justinsb for cleanup")
 			tags.Insert("_gce")
 		}
 
@@ -108,7 +107,7 @@ func buildNodeupTags(role api.InstanceGroupRole, cluster *api.Cluster, clusterTa
 		return nil, fmt.Errorf("Networking is not set, and should not be nil here")
 	}
 
-	if networking.CNI != nil || networking.Weave != nil || networking.Calico != nil || networking.Canal != nil {
+	if networking.CNI != nil || networking.Weave != nil || networking.Flannel != nil || networking.Calico != nil || networking.Canal != nil {
 		// external is based on cni, weave, flannel, calico, etc
 		tags.Insert("_networking_cni")
 	}
@@ -139,7 +138,7 @@ func buildNodeupTags(role api.InstanceGroupRole, cluster *api.Cluster, clusterTa
 
 	// TODO: Replace with list of CNI plugins ?
 	if usesCNI(cluster) {
-		tags.Insert("_cni_bridge", "_cni_host_local", "_cni_loopback", "_cni_ptp")
+		tags.Insert("_cni_bridge", "_cni_host_local", "_cni_loopback", "_cni_ptp", "_cni_flannel")
 		//tags.Insert("_cni_tuning")
 	}
 

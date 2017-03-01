@@ -149,12 +149,16 @@ type ClusterSpec struct {
 	KubeProxy             *KubeProxyConfig             `json:"kubeProxy,omitempty"`
 	Kubelet               *KubeletConfigSpec           `json:"kubelet,omitempty"`
 	MasterKubelet         *KubeletConfigSpec           `json:"masterKubelet,omitempty"`
+	CloudConfig           *CloudConfiguration          `json:"cloudConfig,omitempty"`
 
 	// Networking configuration
 	Networking *NetworkingSpec `json:"networking,omitempty"`
 
 	// API field controls how the API is exposed outside the cluster
 	API *AccessSpec `json:"api,omitempty"`
+
+	// Tags for AWS resources
+	CloudLabels map[string]string `json:"cloudLabels,omitempty"`
 }
 
 type AccessSpec struct {
@@ -178,7 +182,8 @@ const (
 )
 
 type LoadBalancerAccessSpec struct {
-	Type LoadBalancerType `json:"type,omitempty"`
+	Type               LoadBalancerType `json:"type,omitempty"`
+	IdleTimeoutSeconds *int64           `json:"idleTimeoutSeconds,omitempty"`
 }
 
 type KubeDNSConfig struct {
