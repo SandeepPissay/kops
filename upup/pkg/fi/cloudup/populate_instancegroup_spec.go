@@ -32,12 +32,15 @@ import (
 const (
 	defaultNodeMachineTypeAWS = "t2.medium"
 	defaultNodeMachineTypeGCE = "n1-standard-2"
+	defaultNodeMachineTypeVC = "vc_node"
 
 	defaultBastionMachineTypeAWS = "t2.micro"
 	defaultBastionMachineTypeGCE = "f1-micro"
+	defaultBastionMachineTypeVC = "vc_bastion"
 
 	defaultMasterMachineTypeGCE = "n1-standard-1"
 	defaultMasterMachineTypeAWS = "m3.medium"
+	defaultMasterMachineTypeVC = "vc_master"
 )
 
 var masterMachineTypeExceptions = map[string]string{
@@ -131,6 +134,8 @@ func defaultNodeMachineType(cluster *api.Cluster) string {
 		return defaultNodeMachineTypeAWS
 	case fi.CloudProviderGCE:
 		return defaultNodeMachineTypeGCE
+	case fi.CloudProviderVC:
+		return defaultNodeMachineTypeVC
 	default:
 		glog.V(2).Infof("Cannot set default MachineType for CloudProvider=%q", cluster.Spec.CloudProvider)
 		return ""
@@ -183,6 +188,8 @@ func defaultMasterMachineType(cluster *api.Cluster) string {
 		return defaultMasterMachineTypeAWS
 	case fi.CloudProviderGCE:
 		return defaultMasterMachineTypeGCE
+	case fi.CloudProviderVC:
+		return defaultMasterMachineTypeVC
 	default:
 		glog.V(2).Infof("Cannot set default MachineType for CloudProvider=%q", cluster.Spec.CloudProvider)
 		return ""
@@ -196,6 +203,8 @@ func defaultBastionMachineType(cluster *api.Cluster) string {
 		return defaultBastionMachineTypeAWS
 	case fi.CloudProviderGCE:
 		return defaultBastionMachineTypeGCE
+	case fi.CloudProviderVC:
+		return defaultBastionMachineTypeVC
 	default:
 		glog.V(2).Infof("Cannot set default MachineType for CloudProvider=%q", cluster.Spec.CloudProvider)
 		return ""

@@ -272,6 +272,8 @@ func (t *templateFunctions) ProtokubeFlags() *ProtokubeFlags {
 			f.DNSProvider = fi.String("aws-route53")
 		case fi.CloudProviderGCE:
 			f.DNSProvider = fi.String("google-clouddns")
+		case fi.CloudProviderVC:
+			f.DNSProvider = fi.String("vmware-clouddns")
 		default:
 			glog.Warningf("Unknown cloudprovider %q; won't set DNS provider")
 		}

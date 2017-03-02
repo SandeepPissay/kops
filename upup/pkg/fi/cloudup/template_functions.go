@@ -138,6 +138,8 @@ func (tf *TemplateFunctions) DnsControllerArgv() ([]string, error) {
 		argv = append(argv, "--dns=aws-route53")
 	case fi.CloudProviderGCE:
 		argv = append(argv, "--dns=google-clouddns")
+	case fi.CloudProviderVC:
+		argv = append(argv, "--dns=vmware-clouddns")
 
 	default:
 		return nil, fmt.Errorf("unhandled cloudprovider %q", tf.cluster.Spec.CloudProvider)

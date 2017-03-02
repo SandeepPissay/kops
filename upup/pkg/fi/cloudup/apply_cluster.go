@@ -47,6 +47,9 @@ import (
 	"k8s.io/kops/util/pkg/hashing"
 	"k8s.io/kops/util/pkg/vfs"
 	k8sapi "k8s.io/kubernetes/pkg/api"
+	"k8s.io/kops/pkg/model/vcmodel"
+	"k8s.io/kops/upup/pkg/fi/cloudup/vctasks"
+	"k8s.io/kops/upup/pkg/fi/cloudup/vc"
 )
 
 const DefaultMaxTaskDuration = 10 * time.Minute
@@ -368,6 +371,20 @@ func (c *ApplyClusterCmd) Run() error {
 			l.TemplateFunctions["MachineTypeInfo"] = awsup.GetMachineTypeInfo
 		}
 
+	case fi.CloudProviderVC:
+		{
+			vcCloud := cloud.(*vc.VCCloud)
+			region = vcCloud.Region
+
+			//if !AlphaAllowGCE.Enabled() {
+			//	return fmt.Errorf("GCE support is currently alpha, and is feature-gated.  export KOPS_FEATURE_FLAGS=AlphaAllowGCE")
+			//}
+
+			l.AddTypes(map[string]interface{}{
+				"instance":       &vctasks.VirtualMachine{},
+			})
+		}
+
 	default:
 		return fmt.Errorf("unknown CloudProvider %q", cluster.Spec.CloudProvider)
 	}
@@ -446,6 +463,13 @@ func (c *ApplyClusterCmd) Run() error {
 					&gcemodel.NetworkModelBuilder{GCEModelContext: gceModelContext},
 					//&model.SSHKeyModelBuilder{KopsModelContext: modelContext},
 				)
+			case fi.CloudProviderVC:
+				vcModelContext := &vcmodel.VCModelContext{
+					KopsModelContext: modelContext,
+				}
+
+				l.Builders = append(l.Builders,
+				&vcmodel.VirtualMachineModelBuilder{VCModelContext: vcModelContext})
 
 			default:
 				return fmt.Errorf("unknown cloudprovider %q", cluster.Spec.CloudProvider)
@@ -572,6 +596,17 @@ func (c *ApplyClusterCmd) Run() error {
 
 			l.Builders = append(l.Builders, &gcemodel.AutoscalingGroupModelBuilder{
 				GCEModelContext: gceModelContext,
+				BootstrapScript: bootstrapScriptBuilder,
+			})
+		}
+	case fi.CloudProviderVC:
+		{
+			vcModelContext := &vcmodel.VCModelContext{
+				KopsModelContext: modelContext,
+			}
+
+			l.Builders = append(l.Builders, &vcmodel.AutoscalingGroupModelBuilder{
+				VCModelContext: vcModelContext,
 				BootstrapScript: bootstrapScriptBuilder,
 			})
 		}

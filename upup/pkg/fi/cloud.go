@@ -22,6 +22,7 @@ type CloudProviderID string
 
 const CloudProviderAWS CloudProviderID = "aws"
 const CloudProviderGCE CloudProviderID = "gce"
+const CloudProviderVC CloudProviderID = "vc"
 
 type Cloud interface {
 	ProviderID() CloudProviderID

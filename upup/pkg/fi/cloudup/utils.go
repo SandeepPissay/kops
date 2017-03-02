@@ -25,6 +25,7 @@ import (
 	"k8s.io/kops/upup/pkg/fi/cloudup/gce"
 	"k8s.io/kubernetes/federation/pkg/dnsprovider"
 	"strings"
+	"k8s.io/kops/upup/pkg/fi/cloudup/vc"
 )
 
 func BuildCloud(cluster *api.Cluster) (fi.Cloud, error) {
@@ -95,6 +96,11 @@ func BuildCloud(cluster *api.Cluster) (fi.Cloud, error) {
 				return nil, err
 			}
 			cloud = awsCloud
+		}
+	case "vc":
+		{
+			cloud = &vc.VCCloud{}
+			fmt.Println("VC: In VC cloud provider")
 		}
 
 	default:
