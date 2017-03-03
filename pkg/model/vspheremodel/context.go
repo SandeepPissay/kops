@@ -1,7 +1,7 @@
-package vcmodel
+package vspheremodel
 
 import "k8s.io/kops/pkg/model"
 
-type VCModelContext struct {
+type VSphereModelContext struct {
 	*model.KopsModelContext
 }

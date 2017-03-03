@@ -90,7 +90,6 @@ func NewCmdUpdateCluster(f *util.Factory, out io.Writer) *cobra.Command {
 }
 
 func RunUpdateCluster(f *util.Factory, clusterName string, out io.Writer, c *UpdateClusterOptions) error {
-	fmt.Print("RunUpdateCluster invoked for UpdateClusterOptions %s\n", fi.DebugAsJsonString(c))
 	isDryrun := false
 	targetName := c.Target
 

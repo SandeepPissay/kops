@@ -1,23 +1,23 @@
-package vcmodel
+package vspheremodel
 
 import (
 	"k8s.io/kops/upup/pkg/fi"
 	"fmt"
-	"k8s.io/kops/upup/pkg/fi/cloudup/vctasks"
+	"k8s.io/kops/upup/pkg/fi/cloudup/vspheretasks"
 )
 
 // AutoscalingGroupModelBuilder configures AutoscalingGroup objects
 type VirtualMachineModelBuilder struct {
-	*VCModelContext
+	*VSphereModelContext
 }
 
 func (b *VirtualMachineModelBuilder) Build(c *fi.ModelBuilderContext) error {
 	fmt.Print("In VirtualMachineModelBuilder.Build function!!")
-	var masterVmTask = &vctasks.VirtualMachine{
+	var masterVmTask = &vspheretasks.VirtualMachine{
 		Name: fi.String("dummyMasterVmName"),
 		VMTemplateName: fi.String("dummyVmTemplate"),
 	}
-	var nodeVmTask = &vctasks.VirtualMachine{
+	var nodeVmTask = &vspheretasks.VirtualMachine{
 		Name: fi.String("dummyWorkerVmName"),
 		VMTemplateName: fi.String("dummyVmTemplate"),
 	}

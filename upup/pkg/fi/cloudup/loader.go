@@ -161,15 +161,12 @@ func (l *Loader) BuildTasks(modelStore vfs.Path, models []string) (map[string]fi
 
 	for _, model := range models {
 		modelDir := modelStore.Join(model)
-		fmt.Print("Model Dir is %s", modelDir)
 		err := tw.Walk(modelDir)
 		if err != nil {
 			return nil, err
 		}
 	}
 
-	fmt.Print("l.tasks len is %d\n", len(l.tasks))
-	fmt.Print("l.tasks is %s\n", fi.DebugAsJsonString(l.tasks))
 	for _, builder := range l.Builders {
 		context := &fi.ModelBuilderContext{
 			Tasks: l.tasks,

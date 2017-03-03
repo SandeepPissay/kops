@@ -1,4 +1,4 @@
-package vc
+package vsphere
 
 import (
 	"k8s.io/kops/upup/pkg/fi"
@@ -8,20 +8,20 @@ import (
 	"fmt"
 )
 
-type VCCloud struct {
+type VSphereCloud struct {
 	// dummy field
 	name string
 	Region  string
 }
 
-var _ fi.Cloud = &VCCloud{}
+var _ fi.Cloud = &VSphereCloud{}
 
-func (c *VCCloud) ProviderID() fi.CloudProviderID {
-	return fi.CloudProviderVC
+func (c *VSphereCloud) ProviderID() fi.CloudProviderID {
+	return fi.CloudProviderVSphere
 }
 
-func (c *VCCloud) DNS() (dnsprovider.Interface, error) {
-	glog.Warning("DNS() not implemented on VC")
+func (c *VSphereCloud) DNS() (dnsprovider.Interface, error) {
+	glog.Warning("DNS() not implemented on VSphere")
 	provider, err := dnsprovider.GetDnsProvider(k8sroute53.ProviderName, nil)
 	if err != nil {
 		return nil, fmt.Errorf("Error building (k8s) DNS provider: %v", err)
@@ -30,7 +30,7 @@ func (c *VCCloud) DNS() (dnsprovider.Interface, error) {
 
 }
 
-func (c *VCCloud) FindVPCInfo(id string) (*fi.VPCInfo, error) {
-	glog.Warningf("FindVPCInfo not (yet) implemented on GCE")
+func (c *VSphereCloud) FindVPCInfo(id string) (*fi.VPCInfo, error) {
+	glog.Warningf("FindVPCInfo not (yet) implemented on VSphere")
 	return nil, nil
 }

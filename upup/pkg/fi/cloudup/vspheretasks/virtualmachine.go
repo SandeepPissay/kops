@@ -1,9 +1,9 @@
-package vctasks
+package vspheretasks
 
 import (
 	"k8s.io/kops/upup/pkg/fi"
-	"k8s.io/kops/upup/pkg/fi/cloudup/vc"
 	"github.com/golang/glog"
+	"k8s.io/kops/upup/pkg/fi/cloudup/vsphere"
 )
 
 // VirtualMachine represents a VMware VM
@@ -51,8 +51,8 @@ func (_ *VirtualMachine) CheckChanges(a, e, changes *VirtualMachine) error {
 	return nil
 }
 
-func (_ *VirtualMachine) RenderVC(t *vc.VCAPITarget, a, e, changes *VirtualMachine) error {
-	glog.Info("VirtualMachine.RenderVC invoked!")
+func (_ *VirtualMachine) RenderVSphere(t *vsphere.VSphereAPITarget, a, e, changes *VirtualMachine) error {
+	glog.Info("VirtualMachine.RenderVSphere invoked!")
 	return nil
 }
 

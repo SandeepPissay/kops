@@ -157,17 +157,17 @@ func (b *KubeletOptionsBuilder) BuildOptions(o interface{}) error {
 		clusterSpec.CloudConfig.NodeTags = fi.String(GCETagForRole(b.Context.ClusterName, kops.InstanceGroupRoleNode))
 	}
 
-	if cloudProvider == fi.CloudProviderVC {
-		glog.Info("In kubenet for VC cloud provider")
-		clusterSpec.Kubelet.CloudProvider = "vc"
+	if cloudProvider == fi.CloudProviderVSphere {
+		glog.Info("In kubenet for vsphere cloud provider")
+		clusterSpec.Kubelet.CloudProvider = "vsphere"
 		clusterSpec.Kubelet.HairpinMode = "vmw-bridge"
 
 		if clusterSpec.CloudConfig == nil {
 			clusterSpec.CloudConfig = &kops.CloudConfiguration{}
 		}
 		clusterSpec.CloudConfig.Multizone = fi.Bool(true)
-		var vc_node_tag = "vc_node_tag"
-		clusterSpec.CloudConfig.NodeTags = &vc_node_tag
+		var vsphere_node_tag = "vsphere_node_tag"
+		clusterSpec.CloudConfig.NodeTags = &vsphere_node_tag
 	}
 
 	usesKubenet, err := UsesKubenet(clusterSpec)

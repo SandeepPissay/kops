@@ -104,8 +104,8 @@ func (b *KubeControllerManagerOptionsBuilder) BuildOptions(o interface{}) error 
 		kcm.CloudProvider = "gce"
 		kcm.ClusterName = gce.SafeClusterName(b.Context.ClusterName)
 
-	case fi.CloudProviderVC:
-		kcm.CloudProvider = "vc"
+	case fi.CloudProviderVSphere:
+		kcm.CloudProvider = "vsphere"
 
 	default:
 		return fmt.Errorf("unknown cloud provider %q", clusterSpec.CloudProvider)

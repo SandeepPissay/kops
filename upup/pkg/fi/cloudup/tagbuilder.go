@@ -66,9 +66,9 @@ func buildCloudupTags(cluster *api.Cluster) (sets.String, error) {
 		{
 			tags.Insert("_aws")
 		}
-	case "vc":
+	case "vsphere":
 		{
-			tags.Insert("_vc")
+			tags.Insert("_vsphere")
 		}
 
 	default:

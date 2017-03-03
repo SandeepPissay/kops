@@ -47,9 +47,9 @@ import (
 	"k8s.io/kops/util/pkg/hashing"
 	"k8s.io/kops/util/pkg/vfs"
 	k8sapi "k8s.io/kubernetes/pkg/api"
-	"k8s.io/kops/pkg/model/vcmodel"
-	"k8s.io/kops/upup/pkg/fi/cloudup/vctasks"
-	"k8s.io/kops/upup/pkg/fi/cloudup/vc"
+	"k8s.io/kops/pkg/model/vspheremodel"
+	"k8s.io/kops/upup/pkg/fi/cloudup/vspheretasks"
+	"k8s.io/kops/upup/pkg/fi/cloudup/vsphere"
 )
 
 const DefaultMaxTaskDuration = 10 * time.Minute
@@ -99,7 +99,6 @@ type ApplyClusterCmd struct {
 }
 
 func (c *ApplyClusterCmd) Run() error {
-	fmt.Print("apply_cluster.Run invoked for ApplyClusterCmd %s\n", fi.DebugAsJsonString(c))
 	if c.MaxTaskDuration == 0 {
 		c.MaxTaskDuration = DefaultMaxTaskDuration
 	}
@@ -116,14 +115,11 @@ func (c *ApplyClusterCmd) Run() error {
 		c.InstanceGroups = instanceGroups
 	}
 
-	fmt.Print("apply_cluster.Run after c.InstanceGroups %s\n", fi.DebugAsJsonString(c.InstanceGroups))
-
 	if c.Models == nil {
 		c.Models = CloudupModels
 	}
 
 	modelStore, err := findModelStore()
-	fmt.Print("apply_cluster.Run after modelStore %s\n", fi.DebugAsJsonString(modelStore))
 	if err != nil {
 		return err
 	}
@@ -133,13 +129,11 @@ func (c *ApplyClusterCmd) Run() error {
 		return err
 	}
 	c.channel = channel
-	fmt.Print("apply_cluster.Run after channel %s\n", fi.DebugAsJsonString(c.channel))
 
 	err = c.upgradeSpecs()
 	if err != nil {
 		return err
 	}
-	fmt.Print("apply_cluster.Run after c.upgradeSpecs() c is %s\n", fi.DebugAsJsonString(c))
 
 	err = c.validateKopsVersion()
 	if err != nil {
@@ -175,14 +169,12 @@ func (c *ApplyClusterCmd) Run() error {
 	}
 
 	keyStore, err := registry.KeyStore(cluster)
-	fmt.Print("apply_cluster.Run after keyStore is %s\n", fi.DebugAsJsonString(keyStore))
 	if err != nil {
 		return err
 	}
 	keyStore.(*fi.VFSCAStore).DryRun = c.DryRun
 
 	secretStore, err := registry.SecretStore(cluster)
-	fmt.Print("apply_cluster.Run after secretStore is %s\n", fi.DebugAsJsonString(secretStore))
 	if err != nil {
 		return err
 	}
@@ -371,17 +363,17 @@ func (c *ApplyClusterCmd) Run() error {
 			l.TemplateFunctions["MachineTypeInfo"] = awsup.GetMachineTypeInfo
 		}
 
-	case fi.CloudProviderVC:
+	case fi.CloudProviderVSphere:
 		{
-			vcCloud := cloud.(*vc.VCCloud)
-			region = vcCloud.Region
+			vsphereCloud := cloud.(*vsphere.VSphereCloud)
+			region = vsphereCloud.Region
 
 			//if !AlphaAllowGCE.Enabled() {
 			//	return fmt.Errorf("GCE support is currently alpha, and is feature-gated.  export KOPS_FEATURE_FLAGS=AlphaAllowGCE")
 			//}
 
 			l.AddTypes(map[string]interface{}{
-				"instance":       &vctasks.VirtualMachine{},
+				"instance":       &vspheretasks.VirtualMachine{},
 			})
 		}
 
@@ -390,7 +382,6 @@ func (c *ApplyClusterCmd) Run() error {
 	}
 
 	modelContext.Region = region
-	fmt.Print("apply_cluster.Run 1modelContext is %s\n", fi.DebugAsJsonString(modelContext))
 
 	err = validateDNS(cluster, cloud)
 	if err != nil {
@@ -418,7 +409,6 @@ func (c *ApplyClusterCmd) Run() error {
 	l.Tags = clusterTags
 	l.WorkDir = c.OutDir
 	l.ModelStore = modelStore
-	fmt.Print("apply_cluster.Run before l.Builders size is %d\n", len(l.Builders))
 
 	var fileModels []string
 	for _, m := range c.Models {
@@ -463,13 +453,13 @@ func (c *ApplyClusterCmd) Run() error {
 					&gcemodel.NetworkModelBuilder{GCEModelContext: gceModelContext},
 					//&model.SSHKeyModelBuilder{KopsModelContext: modelContext},
 				)
-			case fi.CloudProviderVC:
-				vcModelContext := &vcmodel.VCModelContext{
+			case fi.CloudProviderVSphere:
+				vsphereModelContext := &vspheremodel.VSphereModelContext{
 					KopsModelContext: modelContext,
 				}
 
 				l.Builders = append(l.Builders,
-				&vcmodel.VirtualMachineModelBuilder{VCModelContext: vcModelContext})
+				&vspheremodel.VirtualMachineModelBuilder{VSphereModelContext: vsphereModelContext})
 
 			default:
 				return fmt.Errorf("unknown cloudprovider %q", cluster.Spec.CloudProvider)
@@ -481,8 +471,6 @@ func (c *ApplyClusterCmd) Run() error {
 			fileModels = append(fileModels, m)
 		}
 	}
-	fmt.Print("apply_cluster.Run fileModels is %s\n", fi.DebugAsJsonString(fileModels))
-	fmt.Print("apply_cluster.Run after l.Builders size is %d\n", len(l.Builders))
 
 	l.TemplateFunctions["CA"] = func() fi.CAStore {
 		return keyStore
@@ -490,11 +478,9 @@ func (c *ApplyClusterCmd) Run() error {
 	l.TemplateFunctions["Secrets"] = func() fi.SecretStore {
 		return secretStore
 	}
-	fmt.Print("Before renderNodeUpConfig init")
 
 	// RenderNodeUpConfig returns the NodeUp config, in YAML format
 	renderNodeUpConfig := func(ig *api.InstanceGroup) (*nodeup.NodeUpConfig, error) {
-		fmt.Print("Running renderNodeUpConfig init")
 		if ig == nil {
 			return nil, fmt.Errorf("instanceGroup cannot be nil")
 		}
@@ -570,7 +556,6 @@ func (c *ApplyClusterCmd) Run() error {
 
 		return config, nil
 	}
-	fmt.Print("After renderNodeUpConfig init, value %s\n", fi.DebugAsJsonString(renderNodeUpConfig))
 
 	bootstrapScriptBuilder := &model.BootstrapScript{
 		NodeUpConfigBuilder: renderNodeUpConfig,
@@ -599,15 +584,15 @@ func (c *ApplyClusterCmd) Run() error {
 				BootstrapScript: bootstrapScriptBuilder,
 			})
 		}
-	case fi.CloudProviderVC:
+	case fi.CloudProviderVSphere:
 		{
-			vcModelContext := &vcmodel.VCModelContext{
+			vsphereModelContext := &vspheremodel.VSphereModelContext{
 				KopsModelContext: modelContext,
 			}
 
-			l.Builders = append(l.Builders, &vcmodel.AutoscalingGroupModelBuilder{
-				VCModelContext: vcModelContext,
-				BootstrapScript: bootstrapScriptBuilder,
+			l.Builders = append(l.Builders, &vspheremodel.AutoscalingGroupModelBuilder{
+				VSphereModelContext: vsphereModelContext,
+				BootstrapScript:     bootstrapScriptBuilder,
 			})
 		}
 
@@ -649,7 +634,6 @@ func (c *ApplyClusterCmd) Run() error {
 	dryRun := false
 	shouldPrecreateDNS := true
 
-	fmt.Print("\n TargetName is", c.TargetName)
 	switch c.TargetName {
 	case TargetDirect:
 		switch cluster.Spec.CloudProvider {

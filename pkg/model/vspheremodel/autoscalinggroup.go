@@ -1,4 +1,4 @@
-package vcmodel
+package vspheremodel
 
 import (
 	"k8s.io/kops/upup/pkg/fi"
@@ -8,7 +8,7 @@ import (
 
 // AutoscalingGroupModelBuilder configures AutoscalingGroup objects
 type AutoscalingGroupModelBuilder struct {
-	*VCModelContext
+	*VSphereModelContext
 
 	BootstrapScript *model.BootstrapScript
 }
@@ -16,6 +16,6 @@ type AutoscalingGroupModelBuilder struct {
 var _ fi.ModelBuilder = &AutoscalingGroupModelBuilder{}
 
 func (b *AutoscalingGroupModelBuilder) Build(c *fi.ModelBuilderContext) error {
-	glog.Warning("AutoscalingGroupModelBuilder.Build not implemented for VC")
+	glog.Warning("AutoscalingGroupModelBuilder.Build not implemented for vsphere")
 	return nil
 }
