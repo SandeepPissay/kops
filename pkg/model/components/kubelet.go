@@ -156,6 +156,14 @@ func (b *KubeletOptionsBuilder) BuildOptions(o interface{}) error {
 		clusterSpec.CloudConfig.NodeTags = fi.String(GCETagForRole(b.Context.ClusterName, kops.InstanceGroupRoleNode))
 	}
 
+	if cloudProvider == fi.CloudProviderVSphere {
+		clusterSpec.Kubelet.CloudProvider = "vsphere"
+
+		if clusterSpec.CloudConfig == nil {
+			clusterSpec.CloudConfig = &kops.CloudConfiguration{}
+		}
+	}
+
 	usesKubenet, err := UsesKubenet(clusterSpec)
 	if err != nil {
 		return err

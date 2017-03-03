@@ -35,6 +35,7 @@ import (
 	"k8s.io/kops/pkg/model/awsmodel"
 	"k8s.io/kops/pkg/model/components"
 	"k8s.io/kops/pkg/model/gcemodel"
+	"k8s.io/kops/pkg/model/vspheremodel"
 	"k8s.io/kops/upup/pkg/fi"
 	"k8s.io/kops/upup/pkg/fi/cloudup/awstasks"
 	"k8s.io/kops/upup/pkg/fi/cloudup/awsup"
@@ -300,6 +301,17 @@ func (c *ApplyClusterCmd) Run() error {
 			})
 		}
 
+	case fi.CloudProviderVSphere:
+		{
+			fmt.Print("apply_cluster: CloudProviderVSphere loader types to be implemented")
+			/*
+				vsphereCloud := cloud.(*vsphere.VSphereCloud)
+				l.AddTypes(map[string]interface{}{
+					"instance": &vspheretasks.VirtualMachine{},
+				})
+			*/
+		}
+
 	case fi.CloudProviderAWS:
 		{
 			awsCloud := cloud.(awsup.AWSCloud)
@@ -436,6 +448,15 @@ func (c *ApplyClusterCmd) Run() error {
 					//&model.SSHKeyModelBuilder{KopsModelContext: modelContext},
 				)
 
+			case fi.CloudProviderVSphere:
+				fmt.Print("CloudProviderVSphere models to be initialized")
+				/*
+					l.Builders = append(l.Builders,
+						&model.MasterVolumeBuilder{KopsModelContext: modelContext},
+						&model.NetworkModelBuilder{KopsModelContext: modelContext},
+					)
+				*/
+
 			default:
 				return fmt.Errorf("unknown cloudprovider %q", cluster.Spec.CloudProvider)
 			}
@@ -559,6 +580,16 @@ func (c *ApplyClusterCmd) Run() error {
 				BootstrapScript: bootstrapScriptBuilder,
 			})
 		}
+
+	case fi.CloudProviderVSphere:
+		vsphereModelContext := &vspheremodel.VSphereModelContext{
+			KopsModelContext: modelContext,
+		}
+
+		l.Builders = append(l.Builders, &vspheremodel.AutoscalingGroupModelBuilder{
+			VSphereModelContext: vsphereModelContext,
+			BootstrapScript:     bootstrapScriptBuilder,
+		})
 
 	default:
 		return fmt.Errorf("unknown cloudprovider %q", cluster.Spec.CloudProvider)

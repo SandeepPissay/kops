@@ -94,7 +94,7 @@ func IsClusterReadable(p Path) bool {
 		return false
 
 	case *FSPath:
-		return false
+		return true
 
 	case *MemFSPath:
 		return false
